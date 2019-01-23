@@ -1,0 +1,720 @@
+---
+title: "R Advanced Tuturiol"
+author: 'STAT-471/571/701: Modern Data Mining'
+output:
+  html_document:
+    code_folding: show
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+We will focus today on three specific packages `dplyr`, `data.table`, and `ggplot`. `dplyr` and2 `ggplot` are part of a broader library called `tidyverse` which consolidates commonly-used data science packages. See more here:
+https://www.tidyverse.org/.
+
+* `dplyr` can be used for data manipulation, providing a consistent set of verbs that solve the most common data manipulation challenges.
+* `data.table` is an R package that provides an enhanced version of `data.frames`. Its speed makes it a preferable package to munipulate BIG data.
+* `ggplot` is used for creeating Graphics or Plots.  
+
+
+In addition to `tidyverse`, `nycflights13`, `gapminder` and `ggthemes` will be used in the tutorial. We use `p_load` function of `pacman`, to load all the packages at once. It will first check whether packages are installed. If not, it will install the yet to be installed automatically and then load all the packages.
+
+```{r Install/Load packages,echo = FALSE}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(tidyverse, nycflights13, gapminder, ggthemes, data.table, plotly)
+```
+
+
+## Using `dplyr`
+Below is a table of popular `dplyr` commands. We will go through each one. 
+
+|dplyr Command|SQL equivalent|Action|
+|---|---|---|
+|`filter()`|WHERE|Limit based on condition|
+|`select()`|SELECT|Choose only certain variables|
+|`distinct()`|DISTINCT|De-duplicate result-set|
+|`arrange()`|ORDER BY|Order results|
+|`rename()`|SELECT|Rename variables|
+|`mutate()`|SELECT|Create new variable|
+|`group_by()`|GROUP BY |Group rows|
+|`summarise()`|SELECT|Create new variable in grouped setting|
+
+You can also view the full cheat sheet here: [DPLYR Cheat Sheet](http://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
+
+To illustrate these commands, we will use a pre-existing dataset the contains 336,776 flights that departed from New York City in 2013. `Dplyr` allows you to gather insight from a dataset without altering the original dataset. 
+It is considered best practice not to alter the original dataset. For example in this case, we will never overwrite the existing dataset 'flights'. We will first take a look at the summary statistics.
+
+```{r}
+summary(flights)
+head(flights, n = 30)
+tail(flights)
+glimpse(flights)
+View(flights)
+
+flights
+
+```
+
+
+### Pipes
+
+The `%>%` command is called a pipe. This means that the result of the code before `%>%` is sent, or "piped", to the one after after `%>%`. Piping is a powerful tool for clearly expressing a sequence of multiple operations, as we will see shortly.
+
+Below is a simple example with just numbers. This is the same as `3 + 4 + 5` which gives us an output of 12.
+
+```{r}
+3 %>% 
+  + 4 %>%
+  + 5
+```
+
+Pro Tip: You can use `Command` + `Shift` + `M` in a codeblock to put in a pipe.
+
+### Filter
+
+The filter command will only display the subset of your dataset that match a certain condition. This command will only show flights on Jan 1st, 2013.  
+
+This code is the same as doing `filter(flights, month == 1 & day == 1)` since the `%>%` command passes the `flights` dataframe to the filter command.
+
+```{r}
+firstdayofmonth <- flights %>%
+  filter(month == 1 & day == 1)
+
+glimpse(firstdayofmonth)
+
+glimpse(flights)
+```
+
+It is important to remember that this command does not alter the orignal `flight` dataset. If we want to save this subset as its own object, we run the following. Remember the `<-` is the assignment operator in `R`. 
+```{r}
+filteredFlight <- flights %>%
+                  filter(month == 1 | day == 1)
+
+filteredFlight
+```
+
+Multiple conditions can be included in a filter command. The command below shows any flights from Jan through June to PHL or SLC airports. 
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6)
+
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month %in% c(1, 3, 6))
+
+
+```
+
+### Select
+
+Select will only return columns that are listed. In this case, the resulting dataset will consist of the Origin, Destination, and Carrier of flights that were destined for PHL or SLC in the first 6 months of the year. Remember, the pipe command sends the result of the current line to the next line. In this case, the filtered dataset is then piped into the select command. 
+
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6) %>%
+  select(origin, dest, carrier)
+```
+
+On the contrary, we can use `-` to deselect columns. If we want to drop `year`, `month` and `day`, we just need to prefix `-` to each column name.
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6) %>%
+  select(-year, -month, -day)
+```
+
+### Distinct
+
+Distinct will remove any duplicate rows from the given dataset. Notice in the previous command, it returned a subset with 2116 rows, but with distinct, we can see that only 8 carriers flew to PHL or SLC in the first half of the year. 
+
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6) %>%
+  select(origin, dest, carrier) %>% 
+  distinct()
+```
+
+### Arrange
+
+Arrange puts your data into alphabetical order. In this case the order is first by origin, then descending alpahbetical order of the destination, then alphabetical order of carrier. 
+
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6) %>%
+  select(origin, dest, carrier) %>% 
+  distinct() %>%
+  arrange(origin, desc(dest), carrier)
+```
+
+### Rename
+The Rename function can be used to easily rename a column Header. Here, we rename carrier to airline. 
+
+```{r}
+flights %>%
+  filter(dest %in% c("PHL","SLC") & month <= 6) %>%
+  select(origin, dest, carrier) %>% 
+  distinct() %>%
+  arrange(origin, desc(dest), carrier) %>%
+  rename(airline = carrier)
+
+glimpse(flights)
+```
+
+### Mutate
+Mutate is used to create new columns based on current ones. This feature is very useful. Here, we create three new variables "gain", "speed", and "gain_per_hour". Notice how "gain_per_hour" uses the column "gain", which was created in the same mutate statement.  
+
+```{r}
+flights %>%
+  mutate(gain          = dep_delay - arr_delay, 
+         speed         = distance / air_time * 60, 
+         gain_per_hour = gain / (air_time / 60)) %>% 
+  select(dep_delay, arr_delay, gain, distance, distance, air_time, speed, gain_per_hour)
+
+
+flights %>% 
+  mutate(total_delay = dep_delay + arr_delay) %>% 
+  select(carrier, total_delay) %>% 
+  arrange(desc(total_delay)) %>% 
+  group_by(carrier) %>% 
+  summarise(average_delay = mean(total_delay))
+
+
+ggplot(aes(lifeExp, pctPop, ....))
+  
+
+
+
+
+```
+
+### Group By
+
+Reorginizes dataframe by rows according to the column that is grouped by; sumarise then gives statistics of that group. Here, the origin column had three categories, `EWR`, `JFK`, & `LGA`. The `group_by(origin)` command organizes the dataframe by the three origins. Then `summarise()` is used to get metrics related to each origin.
+
+From this table, we can see that EWR had the most flights with 120835, and LGA had the lowest avg delay at 10.34
+
+```{r}
+flights %>%
+  group_by(origin) %>%
+  summarise(num_of_flights = n(), 
+            avg_delay      = mean(dep_delay, na.rm = TRUE)) # na.rm removes any NA data
+```
+
+`group_by` can also take expressions. The following returns the number of flights that started late but arrived early (or on time), started and arrived late etc.
+```{r}
+flights %>%
+  filter(!is.na(dep_delay) & !is.na(arr_delay)) %>%
+  group_by(dep_delay > 0, arr_delay > 0) %>%
+  summarise(num_of_flights = n())
+```
+
+### Summarise
+
+Summarise has a number of other functions that can be used within it. `n_distinct(dest)` returns the number of distinct destinations. From this table we can see that EWR has flights to the largest number of destinations (56). We can also see LGA flights has a lower average distance than those of EWR & JFK.  
+
+```{r}
+flights %>%
+  group_by(origin) %>%
+  summarise(destinations = n_distinct(dest), 
+            avg_distance = mean(distance, na.rm = TRUE))
+```
+
+
+Here we summarise the whole dataset. We can see we have 337,776 observations, 105 distinct destinations and a 12.6 min avg delay.
+```{r}
+flights %>%
+  group_by(carrier) %>% 
+  summarise(num_of_flights = n(), 
+            destinations   = n_distinct(dest), 
+            avg_delay      = mean(dep_delay, na.rm = TRUE))
+```
+
+`Dpylr` is a great way to answer initial questions about a dataset. For example, say we want to know what the farthest flight to leave NYC is.
+
+To answer this, we can group by origin and destination, summarise the max distance for each pair, and then order by the maximum distance value we created. It is now easy to see that the max distance was from EWR or JFK to HNL. 
+```{r}
+flights %>%
+  group_by(origin, dest) %>%
+  summarise(max_distance = max(distance)) %>%
+  arrange(desc(max_distance))
+```
+
+
+## Using `data.table`
+As an enhanced version of `data.frame`, one can do a lot more than subsetting rows and selecting columns within the frame of `data.table`, i.e., within `[ ... ]`. The general form of `data.table` syntax is as shown below:
+
+```{r echo=F}
+cat("DT[i, j, by]
+
+##   R:        i            j        by
+## SQL:  where   select | update  group by")
+```
+
+**The way to read it (out loud) is [as suggested]((https://cran.r-project.org/web/packages/data.table/vignettes/datatable-intro.html)):**
+
+Take `DT`, subset rows using `i`, then calculate `j`, grouped by `by`.
+
+Let's redo the work by `dplyr` above in the `data.table` way. This tutorial will only cover the basics of `data.table`. There are more advanced `data.table` operations that come in handy. See the `data.table` cheat sheet [here](https://s3.amazonaws.com/assets.datacamp.com/img/blog/data+table+cheat+sheet.pdf). Comparisons between `dplyr`, `data.table` and `pandas` (a popular Python package) in terms of speed can be found [here](https://github.com/Rdatatable/data.table/wiki/Benchmarks-:-Grouping).
+
+### Create `data.table`
+
+`setDT` transforms `data.frame` into `data.table`. Notice that since `data.table` is an enhanced version of `data.frame`, operations on `data.frame` are still avaiable to `data.table`. We first make a copy of `flights` and transform it into `data.table`.
+```{r}
+flights2 <- copy(flights)
+setDT(flights2)
+class(flights2)
+```
+
+### Subset rows in `i`
+
+**To show flights on Jan 1st, 2013:**
+
+`dplyr`: 
+```{r, eval=FALSE}
+flights %>% filter(month == 1 & day == 1)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[month == 1 & day == 1]
+```
+
+**To get any flights from Jan through June to PHL or SLC airports:** 
+
+`dplyr`:
+```{r, eval=FALSE}
+flights %>% filter(dest %in% c("PHL","SLC") & month <= 6)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[dest %in% c("PHL","SLC") & month <= 6]
+```
+
+**To get the first N row:**
+`dplyr`:
+```{r, eval=FALSE}
+flights[1:2,]
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[1:2]
+```
+
+
+### Sort rows in `i`
+**To sort column `origin` in ascending order, and then by `dest` in descending order: **
+`dplyr`:
+```{r, eval=FALSE}
+flights %>% 
+  select(origin, dest, carrier) %>% 
+  distinct() %>%
+  arrange(origin, desc(dest), carrier)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+unique(flights2[order(origin, -dest), .(origin, dest, carrier)])
+```
+
+
+### Select column(s) in `j`
+
+**To select Origin, Destination, and Carrier of flights:**
+`dplyr`:
+```{r, eval=FALSE}
+flights %>% select(origin, dest, carrier)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[, list(origin, dest, carrier)]
+```
+or
+
+```{r, eval=FALSE}
+flights2[, .(origin, dest, carrier)]
+```
+
+or you can also store the columns names into a variable and select them using a special syntax `..`.
+```{r, eval=FALSE}
+select_columns <- c("origin", "dest", "carrier")
+flights2[, ..select_columns]
+```
+
+When selecting only one column, `data.table` allows us to return the column as a vector as what the base `$` does.
+
+If 
+
+**To select origin and return it as a vector: **
+`dplyr`:
+```{r, eval=FALSE}
+flights$origin
+flights %>% select(origin)
+
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[, .(origin)]
+```
+
+**To rename `dest` to `destination` and `carrier` to `airline`: **
+
+`dplyr`:
+```{r, eval=FALSE}
+flights %>%
+  select(origin, dest, carrier) %>% 
+  rename(dest = destination, airline = carrier)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[, .(origin, destination = dest, airline = carrier)]
+```
+
+Notice that in `dplyr`, the syntax is `rename(old_name = new_name)` which be read as "rename old_name to new_name"; while `data.table` selects and renames at once: to take values in `dest` and to put the values to `destination`.
+
+### Compute in `j`
+Other than selecting columns, `j` can also handle expressions. For example, 
+
+**To compute how many trips had total `delay < 0`**:
+`base`:
+```{r}
+sum((flights$arr_delay + flights$dep_delay) < 0, na.rm = T)
+```
+
+`data.table`:
+```{r}
+flights2[, sum((arr_delay + dep_delay) < 0, na.rm = T)]
+```
+
+#### Special symbol `.N`
+There are some special symbol in `data.table`, e.g. `.N`, `.SD`, `.SDcols`. `.N` holds the number of observations in the current group. Think of it as a counterpart of `n()` of `dplyr`.
+
+**To count the total number of flights:**
+`dplyr`:
+```{r}
+flights %>%
+  summarise(num_of_flights = n())
+```
+
+`data.table`:
+```{r}
+flights2[, .(num_of_flights = .N)]
+```
+
+#### Special symbol `:=`
+To create new columns as what `mutate` of `dplyr` does:
+
+`dplyr`:
+```{r, eval=FALSE}
+flights %>%
+  mutate(gain = dep_delay - arr_delay)
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[, gain := dep_delay - arr_delay]
+```
+
+**To remove `gain`:**
+Use `:= NULL` to remove columns.
+```{r}
+flights2[, gain := NULL]
+```
+
+
+### Grouping using `by`
+Similar to `group_by` of `dplyr`, `data.table` applies the operations in `j` to groups specified in `by`.
+
+**To count the total number of flights from each origin and average delay time of each: **
+`dplyr`:
+```{r, eval=FALSE}
+flights %>%
+  group_by(origin) %>%
+  summarise(num_of_flights = n(),
+            avg_delay      = mean(dep_delay, na.rm = TRUE))
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[, .(num_of_flights = .N, 
+             avg_delay      = mean(dep_delay, na.rm = TRUE)), 
+         by = origin]
+```
+
+
+`by` also takes expressions like `group_by` does. 
+
+**To count the number of flights that started late but arrived early (or on time), started and arrived late etc.:**
+`dplyr`:
+```{r, eval=FALSE}
+flights %>%
+  filter(!is.na(dep_delay) & !is.na(arr_delay)) %>%
+  group_by(dep_delay > 0, arr_delay > 0) %>%
+  summarise(num_of_flights = n())
+```
+
+`data.table`:
+```{r, eval=FALSE}
+flights2[!is.na(dep_delay) & !is.na(arr_delay), 
+         .N, by = .(dep_delay>0, arr_delay>0)]
+```
+
+### Chaining
+`data.table` can tack expressions one after another, forming a chain of operations similar to piping `%>%`, i.e., DT[ ... ][ ... ][ ... ]. 
+
+```{r, eval=FALSE}
+flights2[, .(max_distance = max(distance)), by = .(origin, dest)
+       ][order(-max_distance)]
+```
+
+
+## `dplyr` or `data.table`?
+Choosing `dplyr` or `data.table` is a personal preference. [Here](https://stackoverflow.com/questions/21435339/data-table-vs-dplyr-can-one-do-something-well-the-other-cant-or-does-poorly) is Stack Overflow post concerning this question. Both authors of `dplyr` (Hadley) and `data.table` (Arun) compare their packages in terms of speed, memory usage and syntax. In short, `dplyr` is more readable (though readability is a subjective question); while `data.table` performs faster than `dplyr` as the data size grows, and uses less memory in several functions by its nature.
+
+
+## Using `ggplot`
+
+We now move on to `ggplot`. The basic idea of `ggplot` is to independently specify building blocks and combine them to create just about any kind of graphical display you want. Building blocks of a graph include:
+
++ data
++ aesthetic mapping
++ geometric object
++ faceting
+
+### Aesthetic Mappings
+
+In `ggplot` land aesthetic means "something you can see". Examples include:
+
++ position (i.e., on the x and y axes)
++ color ("outside" color)
++ fill ("inside" color)
++ shape (of points)
++ size
+
+We now use a different dataset, gapminder, from the package gapminder. Let's do a quick summary.
+
+```{r}
+summary(gapminder)
+View(gapminder)
+glimpse(gapminder)
+```
+
+
+### Plots by Data Types
+
+
+|**Data** | **Plots** | **Geom (ggplot command)**|
+|----------------------------------|----------------------|----------------------------|
+| One Continuous | Histogram | geom_histogram |
+| One Continuous + One Categorical | Boxplot | geom_boxplot |
+| Two Continuous | Scatter Plot | geom_point |
+| Three Continuous | Scatter Plot + Size | geom_point w/ size aesthetic |
+| Two Continuous + One Categorical | Scatter Plot + Color | geom_point w/ color aesthetic |
+| Categorical with reasonable number of levels  | Faceting!! |  facet_wrap() |
+
+**Note: Time is always the x-axis.**
+
+There are many more geom types, but we will focus on the ones listed in the table above.
+
+[Here](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf) is an extremely useful cheatsheet that shows all of ggplots functions and how to use them.
+
+### One Continous /  Geom_Histogram
+
+The following shows the histogram of life Expectancy in 2007. Life expectancy is a continous variable, so we use `geom_histogram()`.
+
+Note how the `%>%` or "piping" also works with ggplot. If you are not piping in a dataframe, the first input to ggplot should be your dataframe. For example, the command would become `ggplot(gapminder, aes(x = lifeExP)) + geom_histogram(binwidth = 2)`
+```{r}
+hist(gapminder$lifeExp)
+
+gapminder %>%
+  ggplot(aes(x = lifeExp)) + 
+  geom_histogram(binwidth = 2)
+
+
+ggplot(gapminder, aes(x = lifeExp)) + 
+  geom_histogram()
+```
+
+### One Continuous + One Categorical / Geom_boxplot
+
+Now, we want to show `lifeExp` broken down by continent. `Continent` is a categorical variable, also called factors in R. For this, we use the geom_boxplot() command. 
+
+```{r}
+
+View(gapminder)
+gapminder %>%
+  filter(year == 2007) %>%
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() +
+  geom_point(position = "jitter", alpha = 0.6, col = "blue")
+
+```
+
+###Two Continous / Geom_Point
+
+Using `geom_point()` we create a scatter plot of our two continous variables, `gdpPercap` and `LifeExp`.
+
+```{r}
+plot(gapminder$gdpPercap, gapminder$lifeExp, pch=16)
+
+
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) + 
+  geom_point(alpha = 0.2, col = "blue")
+```
+
+Some relationships will look better on different scales, and ggplot allows you to change scales very quickly. Here we log the x-axis, with `scale_x_log10()`, which makes the relationship between these two varibles much clearer.
+
+```{r, message=FALSE}
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = F) +
+  scale_x_log10()
+```
+
+### Three Continuous / Geom_point With Size Aesthetic
+
+If we want to show three continous variables at the same time, we can use the size aesthetic in ggplot. This will alter the size of the point by the value in the `pop` column of the gapminder data frame.
+
+```{r, message=FALSE}
+gapminder %>%
+  filter(year == 2007) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp, size = pop)) + 
+  geom_point() +
+  geom_smooth() +
+  scale_x_log10()
+```
+
+
+### Two Continuous + One Categorical / Geom_point With Color Aesthetic
+
+To show more insight into this graph, we can show each point by which continent it is from. Adding the color Aesthetic allows us to show a categorical variable, `continent`, as each point is colored by what continent it is from. 
+
+```{r, message=FALSE}
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp, color = continent)) + 
+  geom_point(alpha = 0.6, position = "jitter") +
+  scale_x_log10()
+```
+
+```{r}
+p <- gapminder %>%
+  filter(year==1977) %>%
+  ggplot( aes(gdpPercap, lifeExp, size = pop, color=continent)) +
+  geom_point() +
+  scale_x_log10() +
+  theme_bw()
+ 
+ggg(p)
+```
+
+### Faceting
+
+Instead of changing the color of points on the graph by continent, you can also create a different graph for each continent by 'faceting'. Depending on the number of factors and your dataset, faceting may look better than just changing colors. To do this we add the `facet_wrap(~ continent)` command. 
+
+```{r,message=FALSE}
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = )) +
+  geom_point() +
+  scale_x_log10() +
+  facet_wrap(~continent)
+
+# gapminder %>%
+#   ggplot(aes(x = pop, y = gdpPercap)) +
+#   geom_point() +
+#   scale_x_log10() +
+#   facet_grid(. ~ continent, scale = "fixed")
+# 
+# glimpse(gapminder)
+```
+
+You can facet with any geom type. Here is an example with `geom_histogram()`. It is also possible to color and facet on the same variable, as shown below. 
+```{r}
+gapminder %>%
+  filter(year == 2007) %>%
+  ggplot(aes(x = lifeExp, fill = continent)) +
+  geom_histogram(binwidth = 2) +
+  facet_wrap(~ continent)
+```
+
+### Adding a linear model line quickly / Geom_smooth
+
+`ggplot` can also quickly add a linear model to a graph. There are also other models geom_smooth can do ("lm", "glm", "gam", "loess", "rlm"). If you leaving it blank it will automatically choose one for you, but that is not recommended. 
+
+To add the linear model line, we add `geom_smooth(method = 'lm', se = TRUE)` to the command. se = TRUE tells it to plot the standard error ranges on the graph.
+```{r,message=FALSE}
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) + 
+  geom_point(aes(alpha = year)) + 
+  geom_smooth(method = 'lm', se = TRUE) + 
+  scale_x_log10()
+```
+
+
+### Changing Colors 
+
+`ggplot` makes it very easy to create very nice graphs, using whats called a theme. There are many default themes or you can make your own. Almost everything is customizable on ggplot, including sizes, colors, font types, etc. Below is a example of building a theme  
+
+To use a theme, it is simply added on the end of your ggplot string of commands. You can also add titles, change labels, etc. by adding a `labs()` command. 
+```{r,echo=FALSE, warning=FALSE}
+theme_new <- theme_bw() +
+  theme(plot.background = element_rect(size = 1, color = "blue", fill = "black"),
+        text=element_text(size = 12, family = "Courier", color = "yellow"),
+        axis.text.y = element_text(colour = "purple"),
+        axis.text.x = element_text(colour = "red"),
+        panel.background = element_rect(fill = "pink"),
+        strip.background = element_rect(fill = "orange"))
+
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) + 
+  geom_point(aes(alpha = year)) +
+  geom_smooth(method = 'lm', se = TRUE) + 
+  scale_x_log10() + labs( title ="Life Expectancy by GDP per Capita", x = "GDP per Capita", y = "Life Expectancy") + theme_new
+
+```
+
+You can also use pre-existing themes. My favorite package is 'ggthemes', which recreates popular themes from websites and magazines. Here is one based on The Economist magazine
+
+```{r, echo = FALSE, message=FALSE, quietly = TRUE}
+gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) + 
+  geom_point(aes(alpha = year)) +
+  geom_smooth(method = 'lm', se = TRUE) + 
+  scale_x_log10() + theme_economist() + 
+  labs(title ="Life Expectancy by GDP per Capita", 
+       x = "GDP per Capita", 
+       y = "Life Expectancy")
+```
+
+## Running RStudio on Cloud Services
+Lastly, we introduce a way to run Rstudio in the cloud. This can come in handy later on in the class when we do more complex analysis with larger datasets, as it will greatly speed up processing times. 
+
+There are many existing guides to help you set up an RStudio instance on the cloud with Google or Amazon Web Services.
+
+Here are a few good guides for using Google Cloud Services:
+
++ This [guide](http://markedmondson.me/run-r-rstudio-and-opencpu-on-google-compute-engine-free-vm-image) even comes with a free VM image for you to use
++ [Official Guide](https://cloudyr.github.io/googleComputeEngineR/), but does not have to much detail
++ [More detailed version of Official guide](http://code.markedmondson.me/launch-rstudio-server-google-cloud-in-two-lines-r/)
+
+and Amazon Web Services: 
+
++ [Official Guide](https://aws.amazon.com/blogs/big-data/running-r-on-aws/)
++ [Another good guide](http://strimas.com/r/rstudio-cloud-1/)
+
+
