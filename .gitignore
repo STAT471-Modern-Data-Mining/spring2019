@@ -65,3 +65,6 @@ rsconnect/
 *.mtc1
 *.out
 *.synctex.gz
+
+# tex files
+*.tex
