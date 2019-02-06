@@ -1,33 +1,38 @@
 ---
 title: "Quiz 1"
 author: "Modern Data Mining"
-date: "January 31, 2017"
-documentclass: exam-mod
+date: "February 5th, 2019"
+graphics: yes
 output:
-  pdf_document: 
-     keep_tex: false
-fontfamily: mathpazo
-fontsize: 11pt
-geometry: margin=1in
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+  html_document:
+    number_sections: yes
+    self_contained: no
+    toc: yes
+    toc_depth: 2
+  word_document:
+    toc: yes
+    toc_depth: 2
 header-includes:
-   - \linespread{1.05}
-   - \usepackage{framed}
-   - \usepackage{fancyvrb}
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyfoot[CO,CE]{}
+- \fancyfoot[LE,RO]{\thepage}
 ---
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.height=4, fig.width=7, warning = T)
+knitr::opts_chunk$set(tidy=TRUE, fig.width=6, fig.height=5, fig.align='left',
+                      dev = 'pdf')
 options(scipen = 1, digits = 3)
 # install.packages("pacman")
 library("pacman")
 pacman::p_load(dplyr, ggplot2, magrittr, gridExtra, reshape, rmarkdown)
+options(xtable.comment = FALSE)
 ```
 
-<!-- \makebox[\textwidth]{\textbf{Name}:\enspace\hrulefill} -->
-<!-- \vspace{0.4in} -->
-<!-- \makebox[\textwidth]{\textbf{Section (471, 571, 701)}:\enspace\hrulefill} -->
 
-Instruction: This is an open book, 10-minute quiz. Check the correction answer from the bubble sheet and turn in the answer sheet only.
+Instruction: This is an open book, 10-minute quiz. Fill in the correct answers on the bubble sheet and turn in the answer sheet only.
 
 \vspace{.1in}
 Predicting Price of the wine based on weather. In the early 1990s, Orley Ashenfelter, an Economics Professor at Princeton University claimed to have found a method to predict the quality of Bordeaux wine, and hence its price, without tasting a single drop\footnote{This data is used in the paper http://www.liquidasset.com/orley.htm and chapter 1 of the book "Super Crunchers: Why Thinking-by-Numbers is the new to be smart".}.
@@ -51,15 +56,15 @@ There are six variables in the data:
 
 ```{r, echo = T}
 wine_train <- read.csv("wine_train.csv")
-str(wine_train)
+#str(wine_train)
 ```
 
 
 
 
 ```{r, echo = F}
-wine_train %>% head %>% knitr::kable(digits = 2)
-wine_train %>% summary
+# wine_train %>% head %>% knitr::kable(digits = 2)
+# wine_train %>% summary
 ## Note LogPrice is logarithm of price and hence can be negative.
 ```
 
@@ -85,7 +90,7 @@ wine_train %>%
 ```{r, echo = F}
 wine_train_1 <- wine_train[1:14,2]
 wine_train_2 <- wine_train[15:27,2]
-boxplot(cbind(wine_train_1, wine_train_2), names = c("Period 1", "Period 2"), ylab = "LogPrice", main = "LogPrice over Year Produced")
+boxplot(wine_train_1, wine_train_2, names = c("Period 1", "Period 2"), ylab = "LogPrice", main = "LogPrice over Year Produced")
 ```
 
 \vspace{.1in}
@@ -196,7 +201,7 @@ D) `r summary(fit1)$coef[1]` + `r summary(fit1)$coef[2]` $\times$ 16.8 $\pm$ 2 $
 E) more information is needed
 
 <!-- `#r newcar_predict$fit` $\pm$ 2 $\times$ `r summary(fit1)$coef[2,2]` -->
-## Multiple Linear Regression
+## Problem 3: Multiple Linear Regression
 
 To further improve on the model, we use multiple linear regression by including all the remaining variables into the simple linear regression model.
 ```{r, echo = F}
